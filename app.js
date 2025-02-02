@@ -1,4 +1,5 @@
 // Global state
+import { Token, Keypair, SystemProgram, Transaction, PublicKey } from '@solana/web3.js';
 let provider = window.solana;
 let walletConnected = false;
 let publicKey = null;
@@ -68,7 +69,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Create mint account
-        const mint = new solanaWeb3.Keypair();
+        const mint = new Keypair();
         console.log('Mint account:', mint.publicKey.toString());
 
         // Get minimum balance for rent exemption
