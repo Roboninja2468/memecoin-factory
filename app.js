@@ -9,6 +9,10 @@ let tokenFormData = {};
 const MINT_SIZE = 82;
 const BACKEND_URL = 'https://web-production-03b1e.up.railway.app';
 
+// Initialize SPL Token program IDs
+const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+
 // Connect to Phantom wallet
 async function connectWallet() {
     try {
@@ -69,7 +73,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Create mint account
-        const mint = new solanaWeb3.Keypair();
+        const mint = solanaWeb3.Keypair.generate();
         console.log('Mint account:', mint.publicKey.toString());
 
         // Get minimum balance for rent exemption
@@ -88,7 +92,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Initialize mint
         transaction.add(
-            splToken.createInitializeMintInstruction(
+            splToken.Token.createInitializeMintInstruction(
                 TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 decimals,
@@ -98,44 +102,49 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Get associated token account
-        const associatedAccount = await splToken.getAssociatedTokenAddress(
+        const associatedAccount = await splToken.Token.getAssociatedTokenAddress(
             mint.publicKey,
-            provider.publicKey
+            provider.publicKey,
+            false,
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
         // Create associated account
         transaction.add(
-            splToken.createAssociatedTokenAccountInstruction(
+            splToken.Token.createAssociatedTokenAccountInstruction(
                 provider.publicKey,
                 associatedAccount,
                 provider.publicKey,
-                mint.publicKey
+                mint.publicKey,
+                TOKEN_PROGRAM_ID,
+                ASSOCIATED_TOKEN_PROGRAM_ID
             )
         );
 
         // Mint tokens
         const amount = supply * Math.pow(10, decimals);
         transaction.add(
-            splToken.createMintToInstruction(
+            splToken.Token.createMintToInstruction(
+                TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 associatedAccount,
                 provider.publicKey,
-                amount,
                 [],
-                TOKEN_PROGRAM_ID
+                amount
             )
         );
 
         // Add authority revocation if selected
         if (options.revokeMint) {
             transaction.add(
-                splToken.createSetAuthorityInstruction(
+                splToken.Token.createSetAuthorityInstruction(
+                    TOKEN_PROGRAM_ID,
                     mint.publicKey,
-                    provider.publicKey,
-                    splToken.AuthorityType.MintTokens,
                     null,
-                    [],
-                    TOKEN_PROGRAM_ID
+                    'MintTokens',
+                    provider.publicKey,
+                    []
                 )
             );
         }
