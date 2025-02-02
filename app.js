@@ -7,6 +7,7 @@ let tokenFormData = {};
 
 // Constants
 const MINT_SIZE = 82;
+const BACKEND_URL = 'https://web-production-03b1e.up.railway.app';
 
 // Connect to Phantom wallet
 async function connectWallet() {
@@ -152,6 +153,27 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         updateStatus('Broadcasting transaction...');
         const signature = await connection.sendRawTransaction(signed.serialize());
         await connection.confirmTransaction(signature);
+
+        // Send data to backend
+        const response = await fetch(`${BACKEND_URL}/api/create-token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name,
+                symbol,
+                supply,
+                decimals,
+                options,
+                mintAddress: mint.publicKey.toString(),
+                signature
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to record token creation');
+        }
 
         // Build social links
         const socialLinks = [];
