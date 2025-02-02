@@ -27,7 +27,7 @@ header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 3rem;
+    margin-bottom: 2rem;
 }
 
 h1 {
@@ -40,6 +40,66 @@ h1 {
     border-radius: 1rem;
     padding: 2rem;
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 2rem;
+}
+
+.cost-card {
+    border: 1px solid var(--accent);
+}
+
+.cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.cost-item {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 0.5rem;
+    text-align: center;
+}
+
+.cost-item h3 {
+    color: var(--accent);
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+}
+
+.cost-item p {
+    font-size: 1.2rem;
+    margin: 0.5rem 0;
+    font-weight: bold;
+}
+
+.cost-item small {
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 0.5rem;
+}
+
+.cost-item.recommended {
+    border: 1px solid var(--success);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.cost-note {
+    text-align: center;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cost-note p {
+    margin: 0;
+    font-weight: 500;
+}
+
+.cost-note small {
+    color: var(--text-secondary);
+    display: block;
+    margin-top: 0.5rem;
 }
 
 .form-page {
@@ -181,5 +241,9 @@ input[type="file"]:hover::before {
     
     h1 {
         font-size: 2rem;
+    }
+    
+    .cost-grid {
+        grid-template-columns: 1fr;
     }
 }
