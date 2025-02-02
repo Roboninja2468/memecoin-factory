@@ -5,10 +5,13 @@ let publicKey = null;
 let uploadedImage = null;
 let tokenFormData = {};
 
+// Constants from SPL Token
+const TOKEN_PROGRAM_ID = window.TOKEN_PROGRAM_ID;
+const ASSOCIATED_TOKEN_PROGRAM_ID = window.ASSOCIATED_TOKEN_PROGRAM_ID;
+const Token = window.Token;
+
 // Constants
 const MINT_SIZE = 82;
-const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
 // Helper function to safely get form values
 function getFormValue(id, defaultValue = '') {
