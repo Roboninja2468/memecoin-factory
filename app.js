@@ -10,6 +10,35 @@ const MINT_SIZE = 82;
 const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
+// RPC Endpoints - we'll try multiple if one fails
+const RPC_ENDPOINTS = [
+    'https://solana-mainnet.g.alchemy.com/v2/demo',
+    'https://rpc.ankr.com/solana',
+    'https://mainnet.rpcpool.com',
+    'https://api.mainnet-beta.solana.com'
+];
+
+// Get a working RPC connection
+async function getConnection() {
+    for (const endpoint of RPC_ENDPOINTS) {
+        try {
+            const connection = new solanaWeb3.Connection(endpoint, {
+                commitment: 'confirmed',
+                wsEndpoint: endpoint.replace('https', 'wss'),
+                confirmTransactionInitialTimeout: 60000
+            });
+            // Test the connection
+            await connection.getSlot();
+            console.log('Using RPC endpoint:', endpoint);
+            return connection;
+        } catch (error) {
+            console.warn(`RPC endpoint ${endpoint} failed:`, error);
+            continue;
+        }
+    }
+    throw new Error('Unable to connect to any RPC endpoint. Please try again later.');
+}
+
 // Connect to Phantom wallet
 async function connectWallet() {
     try {
@@ -63,11 +92,11 @@ async function createToken(name, symbol, supply, decimals) {
     try {
         updateStatus('Creating your token...');
         
-        // Create connection
-        const connection = new solanaWeb3.Connection(
-            solanaWeb3.clusterApiUrl('mainnet-beta'),
-            'confirmed'
-        );
+        // Get working RPC connection
+        const connection = await getConnection();
+        if (!connection) {
+            throw new Error('Unable to establish connection to Solana network');
+        }
 
         // Generate mint account
         const mintKeypair = solanaWeb3.Keypair.generate();
