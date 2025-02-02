@@ -1,17 +1,22 @@
 {
-  "name": "deepseek",
+  "name": "memecoin-factory-server",
   "version": "1.0.0",
-  "description": "1. Go to your GitHub repository in your web browser\r 2. Find the file you want to update (app.js, index.html, etc.)\r 3. Click the file to open it\r 4. Click the pencil icon (Edit) in the top-right corner\r 5. Copy and paste your new code\r 6. Scroll down to \"Commit changes\"\r 7. Add a short description like \"Update website code\"\r 8. Click \"Commit changes\"",
-  "main": "app.js",
+  "description": "Backend server for Memecoin Factory",
+  "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "nodemon server.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@solana/web3.js": "^1.98.0",
-    "express": "^4.21.2"
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "@solana/web3.js": "^1.87.6",
+    "@solana/spl-token": "^0.3.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=16.0.0"
   }
 }
