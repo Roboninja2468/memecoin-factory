@@ -4,6 +4,27 @@ let walletConnected = false;
 let publicKey = null;
 let uploadedImage = null;
 let tokenFormData = {};
+let splTokenInitialized = false;
+
+// Wait for SPL Token initialization
+window.addEventListener('load', () => {
+    const checkSplToken = setInterval(() => {
+        if (window.splToken) {
+            console.log('SPL Token is now available:', window.splToken);
+            splTokenInitialized = true;
+            clearInterval(checkSplToken);
+        }
+    }, 100);
+
+    // Timeout after 10 seconds
+    setTimeout(() => {
+        clearInterval(checkSplToken);
+        if (!splTokenInitialized) {
+            console.error('Failed to initialize SPL Token after timeout');
+            updateStatus('Failed to initialize token creation library. Please refresh the page.', true);
+        }
+    }, 10000);
+});
 
 // Constants
 const MINT_SIZE = 82;
@@ -64,6 +85,10 @@ async function connectWallet() {
 // Create token
 async function createToken(name, symbol, supply, decimals, options = {}) {
     try {
+        if (!splTokenInitialized || !window.splToken) {
+            throw new Error('Token creation library not initialized. Please refresh the page and try again.');
+        }
+
         updateStatus('Creating your token...');
         
         // Create connection
@@ -92,7 +117,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Initialize mint
         transaction.add(
-            splToken.Token.createInitializeMintInstruction(
+            window.splToken.Token.createInitializeMintInstruction(
                 TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 decimals,
@@ -102,7 +127,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Get associated token account
-        const associatedAccount = await splToken.Token.getAssociatedTokenAddress(
+        const associatedAccount = await window.splToken.Token.getAssociatedTokenAddress(
             mint.publicKey,
             provider.publicKey,
             false,
@@ -112,7 +137,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Create associated account
         transaction.add(
-            splToken.Token.createAssociatedTokenAccountInstruction(
+            window.splToken.Token.createAssociatedTokenAccountInstruction(
                 provider.publicKey,
                 associatedAccount,
                 provider.publicKey,
@@ -125,7 +150,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         // Mint tokens
         const amount = supply * Math.pow(10, decimals);
         transaction.add(
-            splToken.Token.createMintToInstruction(
+            window.splToken.Token.createMintToInstruction(
                 TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 associatedAccount,
@@ -138,7 +163,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         // Add authority revocation if selected
         if (options.revokeMint) {
             transaction.add(
-                splToken.Token.createSetAuthorityInstruction(
+                window.splToken.Token.createSetAuthorityInstruction(
                     TOKEN_PROGRAM_ID,
                     mint.publicKey,
                     null,
