@@ -6,14 +6,20 @@
     <title>Memecoin Factory</title>
     <link rel="stylesheet" href="styles.css">
     
-    <!-- Required SDKs -->
+    <!-- Buffer must be loaded first -->
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script>
+        // Initialize Buffer global
+        window.Buffer = buffer.Buffer;
+    </script>
+
+    <!-- Then load Solana dependencies -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
     <script>
         // Initialize required globals
-        window.Token = window.SplToken.Token;
-        window.TOKEN_PROGRAM_ID = window.SplToken.TOKEN_PROGRAM_ID;
-        window.ASSOCIATED_TOKEN_PROGRAM_ID = window.SplToken.ASSOCIATED_TOKEN_PROGRAM_ID;
+        window.TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        window.ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
     </script>
 </head>
 <body>
