@@ -6,8 +6,9 @@ let uploadedImage = null;
 let tokenFormData = {};
 
 // Constants
-const SOL_MINT = new solanaWeb3.PublicKey('So11111111111111111111111111111111111111112');
 const MINT_SIZE = 82;
+const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
 // Connect to Phantom wallet
 async function connectWallet() {
@@ -57,7 +58,7 @@ async function connectWallet() {
     }
 }
 
-// Create token for Raydium listing
+// Create token
 async function createToken(name, symbol, supply, decimals) {
     try {
         updateStatus('Creating your token...');
@@ -81,48 +82,48 @@ async function createToken(name, symbol, supply, decimals) {
             newAccountPubkey: mintKeypair.publicKey,
             lamports: rentExemptAmount,
             space: MINT_SIZE,
-            programId: solanaWeb3.TOKEN_PROGRAM_ID
+            programId: TOKEN_PROGRAM_ID
         });
 
         // Initialize mint instruction
-        const initMintIx = solanaWeb3.splToken.createInitializeMintInstruction(
+        const initMintIx = splToken.createInitializeMintInstruction(
             mintKeypair.publicKey,
             decimals,
             publicKey,
             publicKey,
-            solanaWeb3.TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID
         );
 
         // Get associated token account
-        const associatedTokenAccount = await solanaWeb3.splToken.getAssociatedTokenAddress(
+        const associatedTokenAccount = await splToken.getAssociatedTokenAddress(
             mintKeypair.publicKey,
             publicKey,
             false,
-            solanaWeb3.TOKEN_PROGRAM_ID,
-            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
         // Create associated token account instruction
-        const createAssociatedTokenAccountIx = solanaWeb3.splToken.createAssociatedTokenAccountInstruction(
+        const createAssociatedTokenAccountIx = splToken.createAssociatedTokenAccountInstruction(
             publicKey,
             associatedTokenAccount,
             publicKey,
             mintKeypair.publicKey,
-            solanaWeb3.TOKEN_PROGRAM_ID,
-            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID,
+            ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
         // Calculate token amount with decimals
         const tokenAmount = supply * Math.pow(10, decimals);
 
         // Mint to instruction
-        const mintToIx = solanaWeb3.splToken.createMintToInstruction(
+        const mintToIx = splToken.createMintToInstruction(
             mintKeypair.publicKey,
             associatedTokenAccount,
             publicKey,
             tokenAmount,
             [],
-            solanaWeb3.TOKEN_PROGRAM_ID
+            TOKEN_PROGRAM_ID
         );
 
         // Create transaction
