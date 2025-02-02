@@ -6,8 +6,8 @@ let uploadedImage = null;
 let tokenFormData = {};
 
 // Constants from SPL Token
-const TOKEN_PROGRAM_ID = window.TOKEN_PROGRAM_ID;
-const ASSOCIATED_TOKEN_PROGRAM_ID = window.ASSOCIATED_TOKEN_PROGRAM_ID;
+const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 const Token = window.Token;
 
 // Constants
@@ -39,7 +39,7 @@ async function connectWallet() {
         const resp = await provider.connect();
         console.log('Connection response:', resp);
         
-        publicKey = resp.publicKey;
+        publicKey = new solanaWeb3.PublicKey(resp.publicKey.toString());
         walletConnected = true;
         
         // Update UI
@@ -101,7 +101,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         });
 
         // Initialize mint instruction
-        const initMintIx = Token.createInitializeMintInstruction(
+        const initMintIx = solanaWeb3.Token.createInitializeMintInstruction(
             TOKEN_PROGRAM_ID,
             mintKeypair.publicKey,
             decimals,
@@ -110,7 +110,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Get associated token account
-        const associatedTokenAccount = await Token.getAssociatedTokenAddress(
+        const associatedTokenAccount = await solanaWeb3.Token.getAssociatedTokenAddress(
             ASSOCIATED_TOKEN_PROGRAM_ID,
             TOKEN_PROGRAM_ID,
             mintKeypair.publicKey,
@@ -118,7 +118,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Create associated token account instruction
-        const createAssociatedTokenAccountIx = Token.createAssociatedTokenAccountInstruction(
+        const createAssociatedTokenAccountIx = solanaWeb3.Token.createAssociatedTokenAccountInstruction(
             ASSOCIATED_TOKEN_PROGRAM_ID,
             TOKEN_PROGRAM_ID,
             mintKeypair.publicKey,
@@ -131,7 +131,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         const tokenAmount = supply * Math.pow(10, decimals);
 
         // Mint to instruction
-        const mintToIx = Token.createMintToInstruction(
+        const mintToIx = solanaWeb3.Token.createMintToInstruction(
             TOKEN_PROGRAM_ID,
             mintKeypair.publicKey,
             associatedTokenAccount,
@@ -145,7 +145,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         
         if (options.revokeMint) {
             authorityInstructions.push(
-                Token.createSetAuthorityInstruction(
+                solanaWeb3.Token.createSetAuthorityInstruction(
                     TOKEN_PROGRAM_ID,
                     mintKeypair.publicKey,
                     null,
@@ -158,7 +158,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         if (options.revokeUpdate) {
             authorityInstructions.push(
-                Token.createSetAuthorityInstruction(
+                solanaWeb3.Token.createSetAuthorityInstruction(
                     TOKEN_PROGRAM_ID,
                     mintKeypair.publicKey,
                     null,
