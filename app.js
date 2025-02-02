@@ -10,6 +10,16 @@ const MINT_SIZE = 82;
 const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
 
+// RPC Endpoints
+const RPC_ENDPOINTS = {
+    DEVNET: 'https://api.devnet.solana.com',
+    MAINNET: [
+        'https://solana-mainnet.g.alchemy.com/v2/demo',
+        'https://rpc.ankr.com/solana',
+        'https://solana-api.projectserum.com'
+    ]
+};
+
 // Connect to Phantom wallet
 async function connectWallet() {
     try {
@@ -63,61 +73,114 @@ async function createToken(name, symbol, supply, decimals) {
     try {
         updateStatus('Creating your token...');
         
-        // Create connection
-        const connection = new solanaWeb3.Connection(
-            'https://api.devnet.solana.com',
-            'confirmed'
-        );
-
-        // Setup Metaplex
-        const metaplex = Metaplex.make(connection)
-            .use(keypairIdentity(solanaWeb3.Keypair.generate()))
-            .use(bundlrStorage());
+        // Create connection to devnet
+        const connection = new solanaWeb3.Connection(RPC_ENDPOINTS.DEVNET);
 
         // Generate mint account
         const mintKeypair = solanaWeb3.Keypair.generate();
         console.log('Mint account:', mintKeypair.publicKey.toString());
 
-        // Create token with metadata
-        const { nft } = await metaplex.nfts().create({
-            uri: uploadedImage ? await uploadMetadata(metaplex, {
-                name,
-                symbol,
-                description: document.getElementById('description').value,
-                image: uploadedImage
-            }) : null,
-            name,
-            symbol,
-            sellerFeeBasisPoints: 0,
-            tokenStandard: 'fungible',
-            decimals,
-            supply: new solanaWeb3.BN(supply * Math.pow(10, decimals)),
-            creators: [{ address: publicKey, share: 100 }],
-            mintAuthority: publicKey,
-            freezeAuthority: publicKey,
-            updateAuthority: publicKey,
+        // Calculate rent exempt amount
+        const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
+
+        // Create account instruction
+        const createAccountIx = solanaWeb3.SystemProgram.createAccount({
+            fromPubkey: publicKey,
+            newAccountPubkey: mintKeypair.publicKey,
+            lamports: rentExemptAmount,
+            space: MINT_SIZE,
+            programId: TOKEN_PROGRAM_ID
         });
+
+        // Initialize mint instruction
+        const initMintIx = splToken.createInitializeMintInstruction(
+            mintKeypair.publicKey,
+            decimals,
+            publicKey,
+            publicKey,
+            TOKEN_PROGRAM_ID
+        );
+
+        // Get associated token account
+        const associatedTokenAccount = await splToken.getAssociatedTokenAddress(
+            mintKeypair.publicKey,
+            publicKey,
+            false,
+            TOKEN_PROGRAM_ID,
+            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+
+        // Create associated token account instruction
+        const createAssociatedTokenAccountIx = splToken.createAssociatedTokenAccountInstruction(
+            publicKey,
+            associatedTokenAccount,
+            publicKey,
+            mintKeypair.publicKey,
+            TOKEN_PROGRAM_ID,
+            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+
+        // Calculate token amount with decimals
+        const tokenAmount = supply * Math.pow(10, decimals);
+
+        // Mint to instruction
+        const mintToIx = splToken.createMintToInstruction(
+            mintKeypair.publicKey,
+            associatedTokenAccount,
+            publicKey,
+            tokenAmount,
+            [],
+            TOKEN_PROGRAM_ID
+        );
+
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction().add(
+            createAccountIx,
+            initMintIx,
+            createAssociatedTokenAccountIx,
+            mintToIx
+        );
+
+        // Get recent blockhash
+        const { blockhash } = await connection.getRecentBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = publicKey;
+
+        // Sign transaction
+        transaction.sign(mintKeypair);
+        const signedTx = await provider.signTransaction(transaction);
+
+        // Send transaction
+        updateStatus('Broadcasting transaction...');
+        const signature = await connection.sendRawTransaction(signedTx.serialize());
+        await connection.confirmTransaction(signature);
 
         // Success message with Raydium instructions
         const successMessage = `
-Token created successfully!
+Token created successfully on Devnet!
 
-Token Address: ${nft.address.toString()}
-Metadata Address: ${nft.metadataAddress.toString()}
+Token Address: ${mintKeypair.publicKey.toString()}
+Transaction: ${signature}
 
-To list on Raydium:
+Note: This token is on Devnet for testing. 
+To create on mainnet:
+1. Switch Phantom wallet to mainnet
+2. Get SOL from an exchange
+3. Create token again
+
+To list on Raydium (after creating on mainnet):
 1. Go to raydium.io
 2. Click "Liquidity" -> "Add Liquidity"
-3. Select your token using the address above
+3. Select your token using the address
 4. Add SOL and token amount for initial liquidity
 5. Complete the transaction
 
-Save your token address: ${nft.address.toString()}`;
+Save your token address: ${mintKeypair.publicKey.toString()}`;
 
         updateStatus(successMessage);
         console.log('Token created:', {
-            address: nft.address.toString(),
-            metadata: nft.metadataAddress.toString(),
+            address: mintKeypair.publicKey.toString(),
+            transaction: signature,
             name,
             symbol,
             supply,
@@ -125,39 +188,14 @@ Save your token address: ${nft.address.toString()}`;
         });
 
         return {
-            address: nft.address.toString(),
-            metadata: nft.metadataAddress.toString()
+            address: mintKeypair.publicKey.toString(),
+            transaction: signature
         };
     } catch (error) {
         console.error('Token creation error:', error);
         updateStatus(`Failed to create token: ${error.message}`, true);
         throw error;
     }
-}
-
-// Upload metadata to Arweave
-async function uploadMetadata(metaplex, metadata) {
-    const { uri } = await metaplex.nfts().uploadMetadata({
-        name: metadata.name,
-        symbol: metadata.symbol,
-        description: metadata.description,
-        image: metadata.image,
-        attributes: [],
-        properties: {
-            files: [{
-                type: metadata.image.type,
-                uri: await uploadFile(metaplex, metadata.image)
-            }]
-        }
-    });
-    return uri;
-}
-
-// Upload file to Arweave
-async function uploadFile(metaplex, file) {
-    const buffer = await file.arrayBuffer();
-    const { uri } = await metaplex.storage().upload(buffer);
-    return uri;
 }
 
 // Initialize event listeners
