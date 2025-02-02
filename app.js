@@ -1,5 +1,4 @@
 // Global state
-import { Token, Keypair, SystemProgram, Transaction, PublicKey } from '@solana/web3.js';
 let provider = window.solana;
 let walletConnected = false;
 let publicKey = null;
@@ -69,7 +68,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Create mint account
-        const mint = new Keypair();
+        const mint = new solanaWeb3.Keypair();
         console.log('Mint account:', mint.publicKey.toString());
 
         // Get minimum balance for rent exemption
@@ -82,14 +81,14 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
                 newAccountPubkey: mint.publicKey,
                 space: MINT_SIZE,
                 lamports,
-                programId: new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA')
+                programId: TOKEN_PROGRAM_ID
             })
         );
 
         // Initialize mint
         transaction.add(
-            solanaWeb3.Token.createInitializeMintInstruction(
-                new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+            splToken.createInitializeMintInstruction(
+                TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 decimals,
                 provider.publicKey,
@@ -98,48 +97,44 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Get associated token account
-        const associatedAccount = await solanaWeb3.Token.getAssociatedTokenAddress(
-            new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'),
-            new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+        const associatedAccount = await splToken.getAssociatedTokenAddress(
             mint.publicKey,
             provider.publicKey
         );
 
         // Create associated account
         transaction.add(
-            solanaWeb3.Token.createAssociatedTokenAccountInstruction(
-                new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'),
-                new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
-                mint.publicKey,
+            splToken.createAssociatedTokenAccountInstruction(
+                provider.publicKey,
                 associatedAccount,
                 provider.publicKey,
-                provider.publicKey
+                mint.publicKey
             )
         );
 
         // Mint tokens
         const amount = supply * Math.pow(10, decimals);
         transaction.add(
-            solanaWeb3.Token.createMintToInstruction(
-                new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+            splToken.createMintToInstruction(
                 mint.publicKey,
                 associatedAccount,
                 provider.publicKey,
+                amount,
                 [],
-                amount
+                TOKEN_PROGRAM_ID
             )
         );
 
         // Add authority revocation if selected
         if (options.revokeMint) {
             transaction.add(
-                solanaWeb3.Token.createSetAuthorityInstruction(
-                    new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+                splToken.createSetAuthorityInstruction(
                     mint.publicKey,
-                    null,
-                    'MintTokens',
                     provider.publicKey,
-                    []
+                    splToken.AuthorityType.MintTokens,
+                    null,
+                    [],
+                    TOKEN_PROGRAM_ID
                 )
             );
         }
