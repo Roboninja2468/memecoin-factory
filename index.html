@@ -14,24 +14,53 @@
     </script>
 
     <!-- Load Solana dependencies -->
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
     <script>
-        // Initialize required globals
-        if (!window.splToken) {
-            const SPL = window.splToken || window.spl_token;
-            window.splToken = {
-                Token: {
-                    createInitializeMintInstruction: SPL.createInitializeMintInstruction,
-                    getAssociatedTokenAddress: SPL.getAssociatedTokenAddress,
-                    createAssociatedTokenAccountInstruction: SPL.createAssociatedTokenAccountInstruction,
-                    createMintToInstruction: SPL.createMintToInstruction,
-                    createSetAuthorityInstruction: SPL.createSetAuthorityInstruction
+        // Wait for libraries to load
+        window.addEventListener('load', async () => {
+            try {
+                console.log('Initializing libraries...');
+                
+                // Initialize connection to Solana devnet with cluster config
+                const clusterConfig = {
+                    commitment: 'confirmed',
+                    wsEndpoint: 'wss://api.devnet.solana.com/',
+                    httpHeaders: {}
+                };
+                window.connection = new solanaWeb3.Connection(
+                    'https://api.devnet.solana.com',
+                    clusterConfig
+                );
+                
+                // Initialize Token program
+                window.TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+                window.ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+
+                // Initialize Token object
+                if (typeof spl_token !== 'undefined') {
+                    window.Token = {
+                        createInitializeMintInstruction: spl_token.createInitializeMintInstruction,
+                        getAssociatedTokenAddress: spl_token.getAssociatedTokenAddress,
+                        createAssociatedTokenAccountInstruction: spl_token.createAssociatedTokenAccountInstruction,
+                        createMintToInstruction: spl_token.createMintToInstruction,
+                        createSetAuthorityInstruction: spl_token.createSetAuthorityInstruction
+                    };
+                    console.log('SPL Token initialized:', window.Token);
+                } else {
+                    throw new Error('SPL Token library not loaded');
                 }
-            };
-        }
-        // Debug logging
-        console.log('SPL Token initialized:', window.splToken);
+                
+                console.log('All libraries initialized successfully');
+            } catch (error) {
+                console.error('Error initializing libraries:', error);
+                const statusElement = document.getElementById('status');
+                if (statusElement) {
+                    statusElement.textContent = `Failed to initialize: ${error.message}`;
+                    statusElement.style.color = 'var(--error)';
+                }
+            }
+        });
     </script>
 </head>
 <body>
