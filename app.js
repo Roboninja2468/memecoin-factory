@@ -5,6 +5,10 @@ let publicKey = null;
 let uploadedImage = null;
 let tokenFormData = {};
 
+// Constants
+const RAYDIUM_MAINNET_PROGRAM_ID = '675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8';
+const SERUM_MAINNET_PROGRAM_ID = '9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin';
+
 // Connect to Phantom wallet
 async function connectWallet() {
     try {
@@ -50,6 +54,120 @@ async function connectWallet() {
         
         updateStatus(errorMessage, true);
         return false;
+    }
+}
+
+// Create token and list on Raydium
+async function createAndListToken(name, symbol, supply, decimals) {
+    try {
+        updateStatus('Creating your token...');
+        
+        // Create connection to Solana network
+        const connection = new solanaWeb3.Connection(
+            solanaWeb3.clusterApiUrl('mainnet-beta'),
+            'confirmed'
+        );
+
+        // Generate new mint account
+        const mintAccount = solanaWeb3.Keypair.generate();
+        console.log('Mint account created:', mintAccount.publicKey.toString());
+
+        // Calculate token supply with decimals
+        const adjustedSupply = supply * Math.pow(10, decimals);
+
+        // Create mint account transaction
+        const createMintAccountIx = solanaWeb3.SystemProgram.createAccount({
+            fromPubkey: provider.publicKey,
+            newAccountPubkey: mintAccount.publicKey,
+            space: solanaWeb3.MintLayout.span,
+            lamports: await connection.getMinimumBalanceForRentExemption(solanaWeb3.MintLayout.span),
+            programId: solanaWeb3.TOKEN_PROGRAM_ID
+        });
+
+        // Initialize mint instruction
+        const initializeMintIx = solanaWeb3.Token.createInitMintInstruction(
+            solanaWeb3.TOKEN_PROGRAM_ID,
+            mintAccount.publicKey,
+            decimals,
+            provider.publicKey,
+            provider.publicKey
+        );
+
+        // Create token account for the user
+        const tokenAccount = await solanaWeb3.Token.getAssociatedTokenAddress(
+            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID,
+            solanaWeb3.TOKEN_PROGRAM_ID,
+            mintAccount.publicKey,
+            provider.publicKey
+        );
+
+        // Create associated token account instruction
+        const createTokenAccountIx = solanaWeb3.Token.createAssociatedTokenAccountInstruction(
+            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID,
+            solanaWeb3.TOKEN_PROGRAM_ID,
+            mintAccount.publicKey,
+            tokenAccount,
+            provider.publicKey,
+            provider.publicKey
+        );
+
+        // Mint tokens to user's account
+        const mintToIx = solanaWeb3.Token.createMintToInstruction(
+            solanaWeb3.TOKEN_PROGRAM_ID,
+            mintAccount.publicKey,
+            tokenAccount,
+            provider.publicKey,
+            [],
+            adjustedSupply
+        );
+
+        updateStatus('Creating Raydium liquidity pool...');
+
+        // Create Raydium liquidity pool
+        const { transaction: poolTx, signers: poolSigners } = await Liquidity.makeCreatePoolTransaction({
+            connection,
+            wallet: provider,
+            mintA: mintAccount.publicKey, // Your token
+            mintB: new solanaWeb3.PublicKey('So11111111111111111111111111111111111111112'), // SOL
+            ammProgramId: new solanaWeb3.PublicKey(RAYDIUM_MAINNET_PROGRAM_ID),
+            serumProgramId: new solanaWeb3.PublicKey(SERUM_MAINNET_PROGRAM_ID),
+        });
+
+        // Combine all transactions
+        const transaction = new solanaWeb3.Transaction()
+            .add(createMintAccountIx)
+            .add(initializeMintIx)
+            .add(createTokenAccountIx)
+            .add(mintToIx)
+            .add(poolTx);
+
+        // Get recent blockhash
+        const { blockhash } = await connection.getRecentBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = provider.publicKey;
+
+        // Sign transaction
+        const signedTx = await provider.signTransaction(transaction);
+        signedTx.partialSign(...poolSigners, mintAccount);
+
+        updateStatus('Broadcasting transaction...');
+
+        // Send transaction
+        const signature = await connection.sendRawTransaction(signedTx.serialize());
+        await connection.confirmTransaction(signature);
+
+        updateStatus(`Success! Your token ${symbol} is now listed on Raydium! 
+            Mint Address: ${mintAccount.publicKey.toString()}
+            Transaction: ${signature}`);
+
+        return {
+            mint: mintAccount.publicKey.toString(),
+            transaction: signature
+        };
+    } catch (error) {
+        console.error('Token creation error:', error);
+        updateStatus(`Failed to create token: ${error.message}`, true);
+        throw error;
     }
 }
 
@@ -152,16 +270,16 @@ document.getElementById('tokenFormDetails').addEventListener('submit', async (e)
     }
 
     try {
-        updateStatus('Creating token...');
-        // Token creation logic will be implemented here
-        console.log('Creating token with:', {
-            name: tokenFormData.name,
-            symbol: tokenFormData.symbol,
+        const result = await createAndListToken(
+            tokenFormData.name,
+            tokenFormData.symbol,
             supply,
             decimals
-        });
+        );
+
+        console.log('Token created and listed:', result);
     } catch (error) {
-        console.error('Token creation failed:', error);
+        console.error('Failed to create and list token:', error);
         updateStatus(`Failed to create token: ${error.message}`, true);
     }
 });
