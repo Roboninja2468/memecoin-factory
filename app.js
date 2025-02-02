@@ -4,12 +4,11 @@ let walletConnected = false;
 let publicKey = null;
 let uploadedImage = null;
 let tokenFormData = {};
-let mintAddress = null;
 
 // Constants
 const MINT_SIZE = 82;
 const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
+const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
 // Connect to Phantom wallet
 async function connectWallet() {
@@ -59,7 +58,7 @@ async function connectWallet() {
     }
 }
 
-// Create token with metadata
+// Create token
 async function createToken(name, symbol, supply, decimals, options = {}) {
     try {
         updateStatus('Creating your token...');
@@ -73,7 +72,6 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         // Generate mint account
         const mintKeypair = solanaWeb3.Keypair.generate();
         console.log('Mint account:', mintKeypair.publicKey.toString());
-        mintAddress = mintKeypair.publicKey;
 
         // Calculate rent exempt amount
         const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
@@ -88,44 +86,43 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         });
 
         // Initialize mint instruction
-        const initMintIx = splToken.createInitializeMintInstruction(
+        const initMintIx = Token.createInitializeMintInstruction(
+            TOKEN_PROGRAM_ID,
             mintKeypair.publicKey,
             decimals,
             publicKey,
-            options.revokeFreeze ? null : publicKey,
-            TOKEN_PROGRAM_ID
+            options.revokeFreeze ? null : publicKey
         );
 
         // Get associated token account
-        const associatedTokenAccount = await splToken.getAssociatedTokenAddress(
-            mintKeypair.publicKey,
-            publicKey,
-            false,
+        const associatedTokenAccount = await Token.getAssociatedTokenAddress(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
             TOKEN_PROGRAM_ID,
-            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+            mintKeypair.publicKey,
+            publicKey
         );
 
         // Create associated token account instruction
-        const createAssociatedTokenAccountIx = splToken.createAssociatedTokenAccountInstruction(
-            publicKey,
+        const createAssociatedTokenAccountIx = Token.createAssociatedTokenAccountInstruction(
+            ASSOCIATED_TOKEN_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            mintKeypair.publicKey,
             associatedTokenAccount,
             publicKey,
-            mintKeypair.publicKey,
-            TOKEN_PROGRAM_ID,
-            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+            publicKey
         );
 
         // Calculate token amount with decimals
         const tokenAmount = supply * Math.pow(10, decimals);
 
         // Mint to instruction
-        const mintToIx = splToken.createMintToInstruction(
+        const mintToIx = Token.createMintToInstruction(
+            TOKEN_PROGRAM_ID,
             mintKeypair.publicKey,
             associatedTokenAccount,
             publicKey,
-            tokenAmount,
             [],
-            TOKEN_PROGRAM_ID
+            tokenAmount
         );
 
         // Add authority revocation instructions if selected
@@ -133,26 +130,26 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         
         if (options.revokeMint) {
             authorityInstructions.push(
-                splToken.createSetAuthorityInstruction(
+                Token.createSetAuthorityInstruction(
+                    TOKEN_PROGRAM_ID,
                     mintKeypair.publicKey,
-                    publicKey,
-                    splToken.AuthorityType.MintTokens,
                     null,
-                    [],
-                    TOKEN_PROGRAM_ID
+                    'MintTokens',
+                    publicKey,
+                    []
                 )
             );
         }
 
         if (options.revokeUpdate) {
             authorityInstructions.push(
-                splToken.createSetAuthorityInstruction(
+                Token.createSetAuthorityInstruction(
+                    TOKEN_PROGRAM_ID,
                     mintKeypair.publicKey,
-                    publicKey,
-                    splToken.AuthorityType.UpdateMetadata,
                     null,
-                    [],
-                    TOKEN_PROGRAM_ID
+                    'UpdateMetadata',
+                    publicKey,
+                    []
                 )
             );
         }
