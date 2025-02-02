@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memecoin Factory</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🪙 Memecoin Factory</h1>
+            <button id="connectButton" class="btn">Connect Wallet</button>
+        </header>
+ 
+        <div class="card">
+            <div id="pageOne" class="form-page active">
+                <h2>Create Your Memecoin - Basic Info</h2>
+                <form id="tokenFormBasic">
+                    <div class="form-group">
+                        <label for="name">Token Name</label>
+                        <input type="text" id="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="symbol">Token Symbol</label>
+                        <input type="text" id="symbol" required maxlength="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="tokenImage">Token Image (max 5MB)</label>
+                        <input type="file" id="tokenImage" accept="image/*">
+                        <div id="imagePreview" class="image-preview"></div>
+                        <small class="error" id="imageError"></small>
+                    </div>
+                    <button type="button" id="nextToDetailsBtn" class="btn btn-primary">Next: Token Details</button>
+                </form>
+            </div>
+
+            <div id="pageTwo" class="form-page">
+                <h2>Create Your Memecoin - Token Details</h2>
+                <form id="tokenFormDetails">
+                    <div class="form-group">
+                        <label for="supply">Total Supply</label>
+                        <input type="number" id="supply" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="decimals">Decimals</label>
+                        <input type="number" id="decimals" value="9" required>
+                    </div>
+                    <div class="form-navigation">
+                        <button type="button" id="backToBasicBtn" class="btn btn-secondary">Back</button>
+                        <button type="submit" class="btn btn-primary">Create Token</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+ 
+        <div id="status" class="status-box"></div>
+    </div>
+
+    <!-- Load Solana -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
+    
+    <!-- Phantom Detection Script -->
+    <script>
+        let phantomInstalled = false;
+
+        window.onload = function() {
+            if ("solana" in window) {
+                console.log("Solana object already in window");
+                phantomInstalled = true;
+                initializeApp();
+            } else {
+                console.log("Waiting for Solana object...");
+                window.addEventListener('solana#initialized', function() {
+                    console.log("Solana object initialized");
+                    phantomInstalled = true;
+                    initializeApp();
+                });
+
+                // Set a timeout in case Phantom isn't installed
+                setTimeout(function() {
+                    if (!phantomInstalled) {
+                        console.log("Phantom not detected after timeout");
+                        updateStatus("Please install Phantom wallet", true);
+                    }
+                }, 3000);
+            }
+        }
+
+        function initializeApp() {
+            // Load the main app script only after Phantom is detected
+            const script = document.createElement('script');
+            script.src = 'app.js';
+            document.body.appendChild(script);
+        }
+
+        function updateStatus(message, isError = false) {
+            console.log(`Status update (${isError ? 'error' : 'info'}):`, message);
+            const statusBox = document.getElementById('status');
+            statusBox.textContent = message;
+            statusBox.style.color = isError ? 'var(--error)' : 'var(--success)';
+        }
+    </script>
+</body>
+</html>
