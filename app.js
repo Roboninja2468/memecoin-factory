@@ -8,36 +8,7 @@ let tokenFormData = {};
 // Constants
 const MINT_SIZE = 82;
 const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-
-// RPC Endpoints - we'll try multiple if one fails
-const RPC_ENDPOINTS = [
-    'https://solana-mainnet.g.alchemy.com/v2/demo',
-    'https://rpc.ankr.com/solana',
-    'https://mainnet.rpcpool.com',
-    'https://api.mainnet-beta.solana.com'
-];
-
-// Get a working RPC connection
-async function getConnection() {
-    for (const endpoint of RPC_ENDPOINTS) {
-        try {
-            const connection = new solanaWeb3.Connection(endpoint, {
-                commitment: 'confirmed',
-                wsEndpoint: endpoint.replace('https', 'wss'),
-                confirmTransactionInitialTimeout: 60000
-            });
-            // Test the connection
-            await connection.getSlot();
-            console.log('Using RPC endpoint:', endpoint);
-            return connection;
-        } catch (error) {
-            console.warn(`RPC endpoint ${endpoint} failed:`, error);
-            continue;
-        }
-    }
-    throw new Error('Unable to connect to any RPC endpoint. Please try again later.');
-}
+const METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
 
 // Connect to Phantom wallet
 async function connectWallet() {
@@ -87,102 +58,52 @@ async function connectWallet() {
     }
 }
 
-// Create token
+// Create token with metadata
 async function createToken(name, symbol, supply, decimals) {
     try {
         updateStatus('Creating your token...');
         
-        // Get working RPC connection
-        const connection = await getConnection();
-        if (!connection) {
-            throw new Error('Unable to establish connection to Solana network');
-        }
+        // Create connection
+        const connection = new solanaWeb3.Connection(
+            'https://api.devnet.solana.com',
+            'confirmed'
+        );
+
+        // Setup Metaplex
+        const metaplex = Metaplex.make(connection)
+            .use(keypairIdentity(solanaWeb3.Keypair.generate()))
+            .use(bundlrStorage());
 
         // Generate mint account
         const mintKeypair = solanaWeb3.Keypair.generate();
         console.log('Mint account:', mintKeypair.publicKey.toString());
 
-        // Calculate rent exempt amount
-        const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
-
-        // Create account instruction
-        const createAccountIx = solanaWeb3.SystemProgram.createAccount({
-            fromPubkey: publicKey,
-            newAccountPubkey: mintKeypair.publicKey,
-            lamports: rentExemptAmount,
-            space: MINT_SIZE,
-            programId: TOKEN_PROGRAM_ID
-        });
-
-        // Initialize mint instruction
-        const initMintIx = splToken.createInitializeMintInstruction(
-            mintKeypair.publicKey,
+        // Create token with metadata
+        const { nft } = await metaplex.nfts().create({
+            uri: uploadedImage ? await uploadMetadata(metaplex, {
+                name,
+                symbol,
+                description: document.getElementById('description').value,
+                image: uploadedImage
+            }) : null,
+            name,
+            symbol,
+            sellerFeeBasisPoints: 0,
+            tokenStandard: 'fungible',
             decimals,
-            publicKey,
-            publicKey,
-            TOKEN_PROGRAM_ID
-        );
-
-        // Get associated token account
-        const associatedTokenAccount = await splToken.getAssociatedTokenAddress(
-            mintKeypair.publicKey,
-            publicKey,
-            false,
-            TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-        );
-
-        // Create associated token account instruction
-        const createAssociatedTokenAccountIx = splToken.createAssociatedTokenAccountInstruction(
-            publicKey,
-            associatedTokenAccount,
-            publicKey,
-            mintKeypair.publicKey,
-            TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
-        );
-
-        // Calculate token amount with decimals
-        const tokenAmount = supply * Math.pow(10, decimals);
-
-        // Mint to instruction
-        const mintToIx = splToken.createMintToInstruction(
-            mintKeypair.publicKey,
-            associatedTokenAccount,
-            publicKey,
-            tokenAmount,
-            [],
-            TOKEN_PROGRAM_ID
-        );
-
-        // Create transaction
-        const transaction = new solanaWeb3.Transaction().add(
-            createAccountIx,
-            initMintIx,
-            createAssociatedTokenAccountIx,
-            mintToIx
-        );
-
-        // Get recent blockhash
-        const { blockhash } = await connection.getRecentBlockhash();
-        transaction.recentBlockhash = blockhash;
-        transaction.feePayer = publicKey;
-
-        // Sign transaction
-        transaction.sign(mintKeypair);
-        const signedTx = await provider.signTransaction(transaction);
-
-        // Send transaction
-        updateStatus('Broadcasting transaction...');
-        const signature = await connection.sendRawTransaction(signedTx.serialize());
-        await connection.confirmTransaction(signature);
+            supply: new solanaWeb3.BN(supply * Math.pow(10, decimals)),
+            creators: [{ address: publicKey, share: 100 }],
+            mintAuthority: publicKey,
+            freezeAuthority: publicKey,
+            updateAuthority: publicKey,
+        });
 
         // Success message with Raydium instructions
         const successMessage = `
 Token created successfully!
 
-Token Address: ${mintKeypair.publicKey.toString()}
-Transaction: ${signature}
+Token Address: ${nft.address.toString()}
+Metadata Address: ${nft.metadataAddress.toString()}
 
 To list on Raydium:
 1. Go to raydium.io
@@ -191,12 +112,12 @@ To list on Raydium:
 4. Add SOL and token amount for initial liquidity
 5. Complete the transaction
 
-Save your token address: ${mintKeypair.publicKey.toString()}`;
+Save your token address: ${nft.address.toString()}`;
 
         updateStatus(successMessage);
         console.log('Token created:', {
-            address: mintKeypair.publicKey.toString(),
-            transaction: signature,
+            address: nft.address.toString(),
+            metadata: nft.metadataAddress.toString(),
             name,
             symbol,
             supply,
@@ -204,14 +125,39 @@ Save your token address: ${mintKeypair.publicKey.toString()}`;
         });
 
         return {
-            address: mintKeypair.publicKey.toString(),
-            transaction: signature
+            address: nft.address.toString(),
+            metadata: nft.metadataAddress.toString()
         };
     } catch (error) {
         console.error('Token creation error:', error);
         updateStatus(`Failed to create token: ${error.message}`, true);
         throw error;
     }
+}
+
+// Upload metadata to Arweave
+async function uploadMetadata(metaplex, metadata) {
+    const { uri } = await metaplex.nfts().uploadMetadata({
+        name: metadata.name,
+        symbol: metadata.symbol,
+        description: metadata.description,
+        image: metadata.image,
+        attributes: [],
+        properties: {
+            files: [{
+                type: metadata.image.type,
+                uri: await uploadFile(metaplex, metadata.image)
+            }]
+        }
+    });
+    return uri;
+}
+
+// Upload file to Arweave
+async function uploadFile(metaplex, file) {
+    const buffer = await file.arrayBuffer();
+    const { uri } = await metaplex.storage().upload(buffer);
+    return uri;
 }
 
 // Initialize event listeners
@@ -236,8 +182,9 @@ connectButton.addEventListener('click', async () => {
 document.getElementById('nextToDetailsBtn').addEventListener('click', () => {
     const name = document.getElementById('name').value.trim();
     const symbol = document.getElementById('symbol').value.trim();
+    const description = document.getElementById('description').value.trim();
     
-    if (!name || !symbol || !uploadedImage) {
+    if (!name || !symbol || !description || !uploadedImage) {
         updateStatus('Please fill in all fields and upload an image', true);
         return;
     }
@@ -247,6 +194,7 @@ document.getElementById('nextToDetailsBtn').addEventListener('click', () => {
     
     tokenFormData.name = name;
     tokenFormData.symbol = symbol;
+    tokenFormData.description = description;
 });
 
 // Back button
