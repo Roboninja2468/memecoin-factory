@@ -87,7 +87,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Initialize mint
         transaction.add(
-            solanaWeb3.Token.createInitializeMintInstruction(
+            splToken.createInitializeMintInstruction(
                 TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 decimals,
@@ -97,48 +97,44 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Get associated token account
-        const associatedAccount = await solanaWeb3.Token.getAssociatedTokenAddress(
-            ASSOCIATED_TOKEN_PROGRAM_ID,
-            TOKEN_PROGRAM_ID,
+        const associatedAccount = await splToken.getAssociatedTokenAddress(
             mint.publicKey,
             provider.publicKey
         );
 
         // Create associated account
         transaction.add(
-            solanaWeb3.Token.createAssociatedTokenAccountInstruction(
-                ASSOCIATED_TOKEN_PROGRAM_ID,
-                TOKEN_PROGRAM_ID,
-                mint.publicKey,
+            splToken.createAssociatedTokenAccountInstruction(
+                provider.publicKey,
                 associatedAccount,
                 provider.publicKey,
-                provider.publicKey
+                mint.publicKey
             )
         );
 
         // Mint tokens
         const amount = supply * Math.pow(10, decimals);
         transaction.add(
-            solanaWeb3.Token.createMintToInstruction(
-                TOKEN_PROGRAM_ID,
+            splToken.createMintToInstruction(
                 mint.publicKey,
                 associatedAccount,
                 provider.publicKey,
+                amount,
                 [],
-                amount
+                TOKEN_PROGRAM_ID
             )
         );
 
         // Add authority revocation if selected
         if (options.revokeMint) {
             transaction.add(
-                solanaWeb3.Token.createSetAuthorityInstruction(
-                    TOKEN_PROGRAM_ID,
+                splToken.createSetAuthorityInstruction(
                     mint.publicKey,
-                    null,
-                    'MintTokens',
                     provider.publicKey,
-                    []
+                    splToken.AuthorityType.MintTokens,
+                    null,
+                    [],
+                    TOKEN_PROGRAM_ID
                 )
             );
         }
