@@ -18,7 +18,20 @@
     <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
     <script>
         // Initialize required globals
-        window.splToken = window.SplToken;
+        if (!window.splToken) {
+            const SPL = window.splToken || window.spl_token;
+            window.splToken = {
+                Token: {
+                    createInitializeMintInstruction: SPL.createInitializeMintInstruction,
+                    getAssociatedTokenAddress: SPL.getAssociatedTokenAddress,
+                    createAssociatedTokenAccountInstruction: SPL.createAssociatedTokenAccountInstruction,
+                    createMintToInstruction: SPL.createMintToInstruction,
+                    createSetAuthorityInstruction: SPL.createSetAuthorityInstruction
+                }
+            };
+        }
+        // Debug logging
+        console.log('SPL Token initialized:', window.splToken);
     </script>
 </head>
 <body>
