@@ -16,6 +16,7 @@
         // Initialize required globals
         window.Buffer = buffer.Buffer;
         const { Metaplex, keypairIdentity, bundlrStorage } = window.metaplex;
+        const splToken = window.SplToken;
     </script>
 </head>
 <body>
@@ -98,6 +99,11 @@
  
         <div id="status" class="status-box"></div>
     </div>
+    
+    <!-- Initialize SPL Token -->
+    <script>
+        window.splToken = window.SplToken;
+    </script>
     
     <!-- Load our app -->
     <script src="app.js"></script>
