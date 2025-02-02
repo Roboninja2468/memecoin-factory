@@ -1,5 +1,4 @@
 // Global state
-const { Token, Keypair, SystemProgram, Transaction, PublicKey } = solanaWeb3;
 let provider = window.solana;
 let walletConnected = false;
 let publicKey = null;
@@ -69,15 +68,15 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Create mint account
-        const mint = new Keypair();
+        const mint = new solanaWeb3.Keypair();
         console.log('Mint account:', mint.publicKey.toString());
 
         // Get minimum balance for rent exemption
         const lamports = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
 
         // Create account
-        const transaction = new Transaction().add(
-            SystemProgram.createAccount({
+        const transaction = new solanaWeb3.Transaction().add(
+            solanaWeb3.SystemProgram.createAccount({
                 fromPubkey: provider.publicKey,
                 newAccountPubkey: mint.publicKey,
                 space: MINT_SIZE,
@@ -88,7 +87,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Initialize mint
         transaction.add(
-            Token.createInitializeMintInstruction(
+            solanaWeb3.Token.createInitializeMintInstruction(
                 TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 decimals,
@@ -98,7 +97,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Get associated token account
-        const associatedAccount = await Token.getAssociatedTokenAddress(
+        const associatedAccount = await solanaWeb3.Token.getAssociatedTokenAddress(
             ASSOCIATED_TOKEN_PROGRAM_ID,
             TOKEN_PROGRAM_ID,
             mint.publicKey,
@@ -107,7 +106,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Create associated account
         transaction.add(
-            Token.createAssociatedTokenAccountInstruction(
+            solanaWeb3.Token.createAssociatedTokenAccountInstruction(
                 ASSOCIATED_TOKEN_PROGRAM_ID,
                 TOKEN_PROGRAM_ID,
                 mint.publicKey,
@@ -120,7 +119,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         // Mint tokens
         const amount = supply * Math.pow(10, decimals);
         transaction.add(
-            Token.createMintToInstruction(
+            solanaWeb3.Token.createMintToInstruction(
                 TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 associatedAccount,
@@ -133,7 +132,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         // Add authority revocation if selected
         if (options.revokeMint) {
             transaction.add(
-                Token.createSetAuthorityInstruction(
+                solanaWeb3.Token.createSetAuthorityInstruction(
                     TOKEN_PROGRAM_ID,
                     mint.publicKey,
                     null,
