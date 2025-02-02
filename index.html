@@ -8,11 +8,11 @@
     
     <!-- Required SDKs -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@solana/buffer-layout@4.0.0/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/@metaplex-foundation/js@0.19.4/dist/index.global.js"></script>
+    <script src="https://bundle.run/buffer@6.0.3"></script>
     <script>
-        // Initialize global objects
-        window.splToken = window.SplToken;
+        window.Buffer = buffer.Buffer;
     </script>
 </head>
 <body>
@@ -33,6 +33,10 @@
                     <div class="form-group">
                         <label for="symbol">Token Symbol</label>
                         <input type="text" id="symbol" required maxlength="5">
+                    </div>
+                    <div class="form-group">
+                        <label for="description">Description</label>
+                        <textarea id="description" required></textarea>
                     </div>
                     <div class="form-group">
                         <label for="tokenImage">Token Image (max 5MB)</label>
