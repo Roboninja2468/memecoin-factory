@@ -9,7 +9,6 @@
     <!-- Required SDKs -->
     <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
-    <script src="https://unpkg.com/@metaplex-foundation/js@0.19.4/dist/index.global.js"></script>
     <script src="https://bundle.run/buffer@6.0.3"></script>
     <script>
         window.Buffer = buffer.Buffer;
@@ -21,6 +20,32 @@
             <h1>🪙 Memecoin Factory</h1>
             <button id="connectButton" class="btn">Connect Wallet</button>
         </header>
+
+        <!-- Cost Estimation -->
+        <div class="card cost-card">
+            <h2>💰 Creation Costs</h2>
+            <div class="cost-grid">
+                <div class="cost-item">
+                    <h3>Token Creation</h3>
+                    <p>~0.005 SOL ($0.50)</p>
+                    <small>One-time fee to create your token</small>
+                </div>
+                <div class="cost-item">
+                    <h3>Raydium Listing</h3>
+                    <p>~0.1-0.2 SOL ($10-20)</p>
+                    <small>Fee to create liquidity pool</small>
+                </div>
+                <div class="cost-item recommended">
+                    <h3>Initial Liquidity</h3>
+                    <p>1-2 SOL recommended</p>
+                    <small>Your initial liquidity (can be withdrawn)</small>
+                </div>
+            </div>
+            <div class="cost-note">
+                <p>💡 You'll need approximately 2-3 SOL total in your wallet</p>
+                <small>Prices based on current SOL value (~$100/SOL)</small>
+            </div>
+        </div>
  
         <div class="card">
             <div id="pageOne" class="form-page active">
