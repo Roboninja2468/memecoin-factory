@@ -74,6 +74,13 @@
                         <div id="imagePreview" class="image-preview"></div>
                         <small class="error" id="imageError"></small>
                     </div>
+                    <div class="form-group">
+                        <label>Social Links</label>
+                        <input type="url" id="website" placeholder="Website URL (optional)">
+                        <input type="text" id="twitter" placeholder="Twitter Username (optional)">
+                        <input type="text" id="telegram" placeholder="Telegram Group (optional)">
+                        <input type="text" id="discord" placeholder="Discord Invite (optional)">
+                    </div>
                     <button type="button" id="nextToDetailsBtn" class="btn btn-primary">Next: Token Details</button>
                 </form>
             </div>
@@ -88,6 +95,24 @@
                     <div class="form-group">
                         <label for="decimals">Decimals</label>
                         <input type="number" id="decimals" value="9" required>
+                    </div>
+                    <div class="form-group authority-options">
+                        <h3>Authority Options (0.1 SOL each)</h3>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="revokeMint">
+                            Revoke Mint Authority
+                            <span class="tooltip">Prevents creating more tokens in the future</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="revokeUpdate">
+                            Revoke Update Authority
+                            <span class="tooltip">Prevents updating token metadata</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="revokeFreeze">
+                            Revoke Freeze Authority
+                            <span class="tooltip">Prevents freezing token accounts</span>
+                        </label>
                     </div>
                     <div class="form-navigation">
                         <button type="button" id="backToBasicBtn" class="btn btn-secondary">Back</button>
