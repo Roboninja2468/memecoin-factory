@@ -10,6 +10,18 @@ const MINT_SIZE = 82;
 const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
+// Helper function to safely get form values
+function getFormValue(id, defaultValue = '') {
+    const element = document.getElementById(id);
+    return element ? element.value.trim() : defaultValue;
+}
+
+// Helper function to safely get checkbox state
+function getCheckboxState(id, defaultState = false) {
+    const element = document.getElementById(id);
+    return element ? element.checked : defaultState;
+}
+
 // Connect to Phantom wallet
 async function connectWallet() {
     try {
@@ -250,25 +262,27 @@ connectButton.addEventListener('click', async () => {
 
 // Page navigation
 document.getElementById('nextToDetailsBtn').addEventListener('click', () => {
-    const name = document.getElementById('name').value.trim();
-    const symbol = document.getElementById('symbol').value.trim();
-    const description = document.getElementById('description').value.trim();
+    const name = getFormValue('name');
+    const symbol = getFormValue('symbol');
+    const description = getFormValue('description');
     
     if (!name || !symbol || !description || !uploadedImage) {
-        updateStatus('Please fill in all fields and upload an image', true);
+        updateStatus('Please fill in all required fields and upload an image', true);
         return;
     }
     
     document.getElementById('pageOne').classList.remove('active');
     document.getElementById('pageTwo').classList.add('active');
     
-    tokenFormData.name = name;
-    tokenFormData.symbol = symbol;
-    tokenFormData.description = description;
-    tokenFormData.website = document.getElementById('website').value.trim();
-    tokenFormData.twitter = document.getElementById('twitter').value.trim();
-    tokenFormData.telegram = document.getElementById('telegram').value.trim();
-    tokenFormData.discord = document.getElementById('discord').value.trim();
+    tokenFormData = {
+        name,
+        symbol,
+        description,
+        website: getFormValue('website'),
+        twitter: getFormValue('twitter'),
+        telegram: getFormValue('telegram'),
+        discord: getFormValue('discord')
+    };
 });
 
 // Back button
@@ -279,91 +293,97 @@ document.getElementById('backToBasicBtn').addEventListener('click', () => {
 
 // Image upload
 const imageInput = document.getElementById('tokenImage');
-imageInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    const imageError = document.getElementById('imageError');
-    const imagePreview = document.getElementById('imagePreview');
-    
-    imageError.textContent = '';
-    
-    if (file) {
-        if (file.size > 5 * 1024 * 1024) {
-            imageError.textContent = 'File is too large. Maximum size is 5MB.';
-            imageInput.value = '';
-            imagePreview.innerHTML = '';
-            uploadedImage = null;
-            return;
-        }
+if (imageInput) {
+    imageInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        const imageError = document.getElementById('imageError');
+        const imagePreview = document.getElementById('imagePreview');
+        
+        if (!imageError || !imagePreview) return;
+        
+        imageError.textContent = '';
+        
+        if (file) {
+            if (file.size > 5 * 1024 * 1024) {
+                imageError.textContent = 'File is too large. Maximum size is 5MB.';
+                imageInput.value = '';
+                imagePreview.innerHTML = '';
+                uploadedImage = null;
+                return;
+            }
 
-        if (!file.type.startsWith('image/')) {
-            imageError.textContent = 'Please upload a valid image file.';
-            imageInput.value = '';
-            imagePreview.innerHTML = '';
-            uploadedImage = null;
-            return;
-        }
+            if (!file.type.startsWith('image/')) {
+                imageError.textContent = 'Please upload a valid image file.';
+                imageInput.value = '';
+                imagePreview.innerHTML = '';
+                uploadedImage = null;
+                return;
+            }
 
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            imagePreview.innerHTML = `<img src="${event.target.result}" alt="Preview" style="max-width: 200px; max-height: 200px;">`;
-        };
-        reader.readAsDataURL(file);
-        uploadedImage = file;
-    }
-});
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                imagePreview.innerHTML = `<img src="${event.target.result}" alt="Preview" style="max-width: 200px; max-height: 200px;">`;
+            };
+            reader.readAsDataURL(file);
+            uploadedImage = file;
+        }
+    });
+}
 
 // Token creation form
-document.getElementById('tokenFormDetails').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!walletConnected) {
-        updateStatus('Please connect your wallet first', true);
-        return;
-    }
+const tokenForm = document.getElementById('tokenFormDetails');
+if (tokenForm) {
+    tokenForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        if (!walletConnected) {
+            updateStatus('Please connect your wallet first', true);
+            return;
+        }
 
-    const supply = document.getElementById('supply').value;
-    const decimals = document.getElementById('decimals').value;
+        const supply = getFormValue('supply');
+        const decimals = getFormValue('decimals', '9');
 
-    if (!supply || supply <= 0) {
-        updateStatus('Please enter a valid supply', true);
-        return;
-    }
+        if (!supply || supply <= 0) {
+            updateStatus('Please enter a valid supply', true);
+            return;
+        }
 
-    if (!decimals || decimals < 0 || decimals > 9) {
-        updateStatus('Decimals must be between 0 and 9', true);
-        return;
-    }
+        if (!decimals || decimals < 0 || decimals > 9) {
+            updateStatus('Decimals must be between 0 and 9', true);
+            return;
+        }
 
-    try {
-        const options = {
-            revokeMint: document.getElementById('revokeMint').checked,
-            revokeUpdate: document.getElementById('revokeUpdate').checked,
-            revokeFreeze: document.getElementById('revokeFreeze').checked,
-            website: tokenFormData.website,
-            twitter: tokenFormData.twitter,
-            telegram: tokenFormData.telegram,
-            discord: tokenFormData.discord
-        };
+        try {
+            const options = {
+                revokeMint: getCheckboxState('revokeMint'),
+                revokeUpdate: getCheckboxState('revokeUpdate'),
+                revokeFreeze: getCheckboxState('revokeFreeze'),
+                ...tokenFormData
+            };
 
-        const result = await createToken(
-            tokenFormData.name,
-            tokenFormData.symbol,
-            supply,
-            decimals,
-            options
-        );
+            const result = await createToken(
+                tokenFormData.name,
+                tokenFormData.symbol,
+                supply,
+                decimals,
+                options
+            );
 
-        console.log('Token created:', result);
-    } catch (error) {
-        console.error('Failed to create token:', error);
-        updateStatus(`Failed to create token: ${error.message}`, true);
-    }
-});
+            console.log('Token created:', result);
+        } catch (error) {
+            console.error('Failed to create token:', error);
+            updateStatus(`Failed to create token: ${error.message}`, true);
+        }
+    });
+}
 
 // Helper function to update status with console logging
 function updateStatus(message, isError = false) {
     console.log(`Status update (${isError ? 'error' : 'info'}):`, message);
     const statusBox = document.getElementById('status');
-    statusBox.textContent = message;
-    statusBox.style.color = isError ? 'var(--error)' : 'var(--success)';
+    if (statusBox) {
+        statusBox.textContent = message;
+        statusBox.style.color = isError ? 'var(--error)' : 'var(--success)';
+    }
 }
