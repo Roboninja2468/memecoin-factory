@@ -11,7 +11,9 @@
     <script src="https://unpkg.com/@solana/spl-token@0.3.8/lib/index.iife.min.js"></script>
     <script>
         // Initialize required globals
-        window.splToken = window.Token; // Important: Initialize splToken from Token
+        window.Token = window.SplToken.Token;
+        window.TOKEN_PROGRAM_ID = window.SplToken.TOKEN_PROGRAM_ID;
+        window.ASSOCIATED_TOKEN_PROGRAM_ID = window.SplToken.ASSOCIATED_TOKEN_PROGRAM_ID;
     </script>
 </head>
 <body>
