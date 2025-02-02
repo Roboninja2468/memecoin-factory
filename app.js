@@ -28,9 +28,10 @@ window.addEventListener('load', async () => {
         // Initialize Solana connection
         window.connection = new solanaWeb3.Connection(SOLANA_ENDPOINT, 'confirmed');
         
-        // Initialize Token program IDs
+        // Initialize Token program IDs and class
         window.TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
         window.ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+        window.Token = solanaWeb3.Token;
         
         // Set network to devnet
         if (provider.isPhantom) {
@@ -108,6 +109,10 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
             throw new Error('Solana connection not initialized');
         }
 
+        if (!window.Token) {
+            throw new Error('Token library not initialized. Please refresh the page.');
+        }
+
         updateStatus('Creating your token...');
 
         // Create mint account
@@ -134,7 +139,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         console.log('Initializing mint...');
         // Initialize mint
         transaction.add(
-            Token.createInitializeMintInstruction(
+            window.Token.createInitializeMintInstruction(
                 window.TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 decimals,
@@ -145,7 +150,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Get associated token account
         console.log('Creating associated token account...');
-        const associatedAccount = await Token.getAssociatedTokenAddress(
+        const associatedAccount = await window.Token.getAssociatedTokenAddress(
             mint.publicKey,
             provider.publicKey,
             false,
@@ -155,7 +160,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Create associated account
         transaction.add(
-            Token.createAssociatedTokenAccountInstruction(
+            window.Token.createAssociatedTokenAccountInstruction(
                 provider.publicKey,
                 associatedAccount,
                 provider.publicKey,
@@ -169,7 +174,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         console.log(`Minting ${supply} tokens...`);
         const amount = supply * Math.pow(10, decimals);
         transaction.add(
-            Token.createMintToInstruction(
+            window.Token.createMintToInstruction(
                 window.TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 associatedAccount,
@@ -183,7 +188,7 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         if (options.revokeMint) {
             console.log('Revoking mint authority...');
             transaction.add(
-                Token.createSetAuthorityInstruction(
+                window.Token.createSetAuthorityInstruction(
                     window.TOKEN_PROGRAM_ID,
                     mint.publicKey,
                     null,
