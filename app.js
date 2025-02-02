@@ -4,35 +4,50 @@ let walletConnected = false;
 let publicKey = null;
 let uploadedImage = null;
 let tokenFormData = {};
-let splTokenInitialized = false;
-
-// Wait for SPL Token initialization
-window.addEventListener('load', () => {
-    const checkSplToken = setInterval(() => {
-        if (window.splToken) {
-            console.log('SPL Token is now available:', window.splToken);
-            splTokenInitialized = true;
-            clearInterval(checkSplToken);
-        }
-    }, 100);
-
-    // Timeout after 10 seconds
-    setTimeout(() => {
-        clearInterval(checkSplToken);
-        if (!splTokenInitialized) {
-            console.error('Failed to initialize SPL Token after timeout');
-            updateStatus('Failed to initialize token creation library. Please refresh the page.', true);
-        }
-    }, 10000);
-});
 
 // Constants
 const MINT_SIZE = 82;
 const BACKEND_URL = 'https://web-production-03b1e.up.railway.app';
+const SOLANA_NETWORK = 'devnet';
+const SOLANA_ENDPOINT = 'https://api.devnet.solana.com';
 
-// Initialize SPL Token program IDs
-const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+// Initialize event listeners
+window.addEventListener('load', async () => {
+    try {
+        console.log('Initializing app...');
+        
+        // Check for Phantom wallet
+        if (!provider) {
+            provider = window?.phantom?.solana;
+        }
+        
+        if (!provider) {
+            throw new Error('Please install Phantom wallet to create tokens');
+        }
+
+        // Initialize Solana connection
+        window.connection = new solanaWeb3.Connection(SOLANA_ENDPOINT, 'confirmed');
+        
+        // Initialize Token program IDs
+        window.TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        window.ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+        
+        // Set network to devnet
+        if (provider.isPhantom) {
+            await provider.connect({ onlyIfTrusted: true });
+            await provider.request({
+                method: "setDefaultNetwork",
+                params: { network: SOLANA_NETWORK }
+            });
+        }
+        
+        console.log('App initialized successfully');
+        updateStatus('Ready to create tokens');
+    } catch (error) {
+        console.error('Initialization error:', error);
+        updateStatus(error.message, true);
+    }
+});
 
 // Connect to Phantom wallet
 async function connectWallet() {
@@ -85,40 +100,42 @@ async function connectWallet() {
 // Create token
 async function createToken(name, symbol, supply, decimals, options = {}) {
     try {
-        if (!splTokenInitialized || !window.splToken) {
-            throw new Error('Token creation library not initialized. Please refresh the page and try again.');
+        if (!walletConnected) {
+            throw new Error('Please connect your wallet first');
+        }
+
+        if (!window.connection) {
+            throw new Error('Solana connection not initialized');
         }
 
         updateStatus('Creating your token...');
-        
-        // Create connection
-        const connection = new solanaWeb3.Connection(
-            'https://api.devnet.solana.com',
-            'confirmed'
-        );
 
         // Create mint account
         const mint = solanaWeb3.Keypair.generate();
-        console.log('Mint account:', mint.publicKey.toString());
+        console.log('Creating mint account:', mint.publicKey.toString());
 
         // Get minimum balance for rent exemption
-        const lamports = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
+        const lamports = await window.connection.getMinimumBalanceForRentExemption(MINT_SIZE);
 
-        // Create account
-        const transaction = new solanaWeb3.Transaction().add(
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction();
+
+        // Add create account instruction
+        transaction.add(
             solanaWeb3.SystemProgram.createAccount({
                 fromPubkey: provider.publicKey,
                 newAccountPubkey: mint.publicKey,
                 space: MINT_SIZE,
                 lamports,
-                programId: TOKEN_PROGRAM_ID
+                programId: window.TOKEN_PROGRAM_ID
             })
         );
 
+        console.log('Initializing mint...');
         // Initialize mint
         transaction.add(
-            window.splToken.Token.createInitializeMintInstruction(
-                TOKEN_PROGRAM_ID,
+            Token.createInitializeMintInstruction(
+                window.TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 decimals,
                 provider.publicKey,
@@ -127,31 +144,33 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         );
 
         // Get associated token account
-        const associatedAccount = await window.splToken.Token.getAssociatedTokenAddress(
+        console.log('Creating associated token account...');
+        const associatedAccount = await Token.getAssociatedTokenAddress(
             mint.publicKey,
             provider.publicKey,
             false,
-            TOKEN_PROGRAM_ID,
-            ASSOCIATED_TOKEN_PROGRAM_ID
+            window.TOKEN_PROGRAM_ID,
+            window.ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
         // Create associated account
         transaction.add(
-            window.splToken.Token.createAssociatedTokenAccountInstruction(
+            Token.createAssociatedTokenAccountInstruction(
                 provider.publicKey,
                 associatedAccount,
                 provider.publicKey,
                 mint.publicKey,
-                TOKEN_PROGRAM_ID,
-                ASSOCIATED_TOKEN_PROGRAM_ID
+                window.TOKEN_PROGRAM_ID,
+                window.ASSOCIATED_TOKEN_PROGRAM_ID
             )
         );
 
         // Mint tokens
+        console.log(`Minting ${supply} tokens...`);
         const amount = supply * Math.pow(10, decimals);
         transaction.add(
-            window.splToken.Token.createMintToInstruction(
-                TOKEN_PROGRAM_ID,
+            Token.createMintToInstruction(
+                window.TOKEN_PROGRAM_ID,
                 mint.publicKey,
                 associatedAccount,
                 provider.publicKey,
@@ -162,9 +181,10 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
 
         // Add authority revocation if selected
         if (options.revokeMint) {
+            console.log('Revoking mint authority...');
             transaction.add(
-                window.splToken.Token.createSetAuthorityInstruction(
-                    TOKEN_PROGRAM_ID,
+                Token.createSetAuthorityInstruction(
+                    window.TOKEN_PROGRAM_ID,
                     mint.publicKey,
                     null,
                     'MintTokens',
@@ -175,20 +195,30 @@ async function createToken(name, symbol, supply, decimals, options = {}) {
         }
 
         // Get recent blockhash
-        const { blockhash } = await connection.getRecentBlockhash();
+        const { blockhash } = await window.connection.getRecentBlockhash();
         transaction.recentBlockhash = blockhash;
         transaction.feePayer = provider.publicKey;
 
         // Sign transaction
+        console.log('Signing transaction...');
         transaction.sign(mint);
         const signed = await provider.signTransaction(transaction);
 
         // Send transaction
+        console.log('Broadcasting transaction...');
         updateStatus('Broadcasting transaction...');
-        const signature = await connection.sendRawTransaction(signed.serialize());
-        await connection.confirmTransaction(signature);
+        const signature = await window.connection.sendRawTransaction(signed.serialize());
+        
+        console.log('Confirming transaction...');
+        updateStatus('Confirming transaction...');
+        const confirmation = await window.connection.confirmTransaction(signature);
+        
+        if (confirmation.value.err) {
+            throw new Error('Transaction failed to confirm');
+        }
 
         // Send data to backend
+        console.log('Recording token creation...');
         const response = await fetch(`${BACKEND_URL}/api/create-token`, {
             method: 'POST',
             headers: {
