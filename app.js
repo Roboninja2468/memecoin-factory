@@ -8,17 +8,7 @@ let tokenFormData = {};
 // Constants
 const MINT_SIZE = 82;
 const TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
-const METADATA_PROGRAM_ID = new solanaWeb3.PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
-
-// RPC Endpoints
-const RPC_ENDPOINTS = {
-    DEVNET: 'https://api.devnet.solana.com',
-    MAINNET: [
-        'https://solana-mainnet.g.alchemy.com/v2/demo',
-        'https://rpc.ankr.com/solana',
-        'https://solana-api.projectserum.com'
-    ]
-};
+const ASSOCIATED_TOKEN_PROGRAM_ID = new solanaWeb3.PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 
 // Connect to Phantom wallet
 async function connectWallet() {
@@ -68,13 +58,16 @@ async function connectWallet() {
     }
 }
 
-// Create token with metadata
+// Create token
 async function createToken(name, symbol, supply, decimals) {
     try {
         updateStatus('Creating your token...');
         
-        // Create connection to devnet
-        const connection = new solanaWeb3.Connection(RPC_ENDPOINTS.DEVNET);
+        // Create connection
+        const connection = new solanaWeb3.Connection(
+            'https://api.devnet.solana.com',
+            'confirmed'
+        );
 
         // Generate mint account
         const mintKeypair = solanaWeb3.Keypair.generate();
@@ -107,7 +100,7 @@ async function createToken(name, symbol, supply, decimals) {
             publicKey,
             false,
             TOKEN_PROGRAM_ID,
-            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+            ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
         // Create associated token account instruction
@@ -117,7 +110,7 @@ async function createToken(name, symbol, supply, decimals) {
             publicKey,
             mintKeypair.publicKey,
             TOKEN_PROGRAM_ID,
-            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+            ASSOCIATED_TOKEN_PROGRAM_ID
         );
 
         // Calculate token amount with decimals
@@ -157,21 +150,15 @@ async function createToken(name, symbol, supply, decimals) {
 
         // Success message with Raydium instructions
         const successMessage = `
-Token created successfully on Devnet!
+Token created successfully!
 
 Token Address: ${mintKeypair.publicKey.toString()}
 Transaction: ${signature}
 
-Note: This token is on Devnet for testing. 
-To create on mainnet:
-1. Switch Phantom wallet to mainnet
-2. Get SOL from an exchange
-3. Create token again
-
-To list on Raydium (after creating on mainnet):
+To list on Raydium:
 1. Go to raydium.io
 2. Click "Liquidity" -> "Add Liquidity"
-3. Select your token using the address
+3. Select your token using the address above
 4. Add SOL and token amount for initial liquidity
 5. Complete the transaction
 
