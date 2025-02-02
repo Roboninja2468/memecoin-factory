@@ -4,7 +4,7 @@ let walletConnected = false;
 let publicKey = null;
 let uploadedImage = null;
 let tokenFormData = {};
-let metaplex = null;
+let mintAddress = null;
 
 // Constants
 const MINT_SIZE = 82;
@@ -27,12 +27,6 @@ async function connectWallet() {
         
         publicKey = resp.publicKey;
         walletConnected = true;
-
-        // Initialize Metaplex
-        const connection = new solanaWeb3.Connection('https://api.devnet.solana.com');
-        metaplex = Metaplex.make(connection)
-            .use(keypairIdentity(solanaWeb3.Keypair.generate()))
-            .use(bundlrStorage());
         
         // Update UI
         document.getElementById('connectButton').textContent = 'Connected';
@@ -43,7 +37,6 @@ async function connectWallet() {
             console.log('Wallet disconnected');
             publicKey = null;
             walletConnected = false;
-            metaplex = null;
             document.getElementById('connectButton').textContent = 'Connect Wallet';
             updateStatus('Wallet disconnected');
         });
@@ -67,43 +60,147 @@ async function connectWallet() {
 }
 
 // Create token with metadata
-async function createToken(name, symbol, supply, decimals) {
+async function createToken(name, symbol, supply, decimals, options = {}) {
     try {
-        if (!metaplex) {
-            throw new Error('Metaplex not initialized. Please reconnect wallet.');
-        }
-
         updateStatus('Creating your token...');
         
-        // Upload image if provided
-        let imageUri = null;
-        if (uploadedImage) {
-            const imageBuffer = await uploadedImage.arrayBuffer();
-            const { uri } = await metaplex.storage().upload(imageBuffer);
-            imageUri = uri;
+        // Create connection
+        const connection = new solanaWeb3.Connection(
+            'https://api.devnet.solana.com',
+            'confirmed'
+        );
+
+        // Generate mint account
+        const mintKeypair = solanaWeb3.Keypair.generate();
+        console.log('Mint account:', mintKeypair.publicKey.toString());
+        mintAddress = mintKeypair.publicKey;
+
+        // Calculate rent exempt amount
+        const rentExemptAmount = await connection.getMinimumBalanceForRentExemption(MINT_SIZE);
+
+        // Create account instruction
+        const createAccountIx = solanaWeb3.SystemProgram.createAccount({
+            fromPubkey: publicKey,
+            newAccountPubkey: mintKeypair.publicKey,
+            lamports: rentExemptAmount,
+            space: MINT_SIZE,
+            programId: TOKEN_PROGRAM_ID
+        });
+
+        // Initialize mint instruction
+        const initMintIx = splToken.createInitializeMintInstruction(
+            mintKeypair.publicKey,
+            decimals,
+            publicKey,
+            options.revokeFreeze ? null : publicKey,
+            TOKEN_PROGRAM_ID
+        );
+
+        // Get associated token account
+        const associatedTokenAccount = await splToken.getAssociatedTokenAddress(
+            mintKeypair.publicKey,
+            publicKey,
+            false,
+            TOKEN_PROGRAM_ID,
+            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+
+        // Create associated token account instruction
+        const createAssociatedTokenAccountIx = splToken.createAssociatedTokenAccountInstruction(
+            publicKey,
+            associatedTokenAccount,
+            publicKey,
+            mintKeypair.publicKey,
+            TOKEN_PROGRAM_ID,
+            solanaWeb3.ASSOCIATED_TOKEN_PROGRAM_ID
+        );
+
+        // Calculate token amount with decimals
+        const tokenAmount = supply * Math.pow(10, decimals);
+
+        // Mint to instruction
+        const mintToIx = splToken.createMintToInstruction(
+            mintKeypair.publicKey,
+            associatedTokenAccount,
+            publicKey,
+            tokenAmount,
+            [],
+            TOKEN_PROGRAM_ID
+        );
+
+        // Add authority revocation instructions if selected
+        const authorityInstructions = [];
+        
+        if (options.revokeMint) {
+            authorityInstructions.push(
+                splToken.createSetAuthorityInstruction(
+                    mintKeypair.publicKey,
+                    publicKey,
+                    splToken.AuthorityType.MintTokens,
+                    null,
+                    [],
+                    TOKEN_PROGRAM_ID
+                )
+            );
         }
 
-        // Create token with metadata
-        const { nft } = await metaplex.nfts().create({
-            uri: imageUri,
-            name,
-            symbol,
-            sellerFeeBasisPoints: 0,
-            isCollection: false,
-            tokenStandard: 'fungible',
-            decimals,
-            supply: new solanaWeb3.BN(supply * Math.pow(10, decimals)),
-            creators: [{ address: publicKey, share: 100 }],
-            collection: null,
-            uses: null,
-        });
+        if (options.revokeUpdate) {
+            authorityInstructions.push(
+                splToken.createSetAuthorityInstruction(
+                    mintKeypair.publicKey,
+                    publicKey,
+                    splToken.AuthorityType.UpdateMetadata,
+                    null,
+                    [],
+                    TOKEN_PROGRAM_ID
+                )
+            );
+        }
+
+        // Create transaction
+        const transaction = new solanaWeb3.Transaction()
+            .add(createAccountIx)
+            .add(initMintIx)
+            .add(createAssociatedTokenAccountIx)
+            .add(mintToIx);
+
+        // Add authority revocation instructions
+        authorityInstructions.forEach(ix => transaction.add(ix));
+
+        // Get recent blockhash
+        const { blockhash } = await connection.getRecentBlockhash();
+        transaction.recentBlockhash = blockhash;
+        transaction.feePayer = publicKey;
+
+        // Sign transaction
+        transaction.sign(mintKeypair);
+        const signedTx = await provider.signTransaction(transaction);
+
+        // Send transaction
+        updateStatus('Broadcasting transaction...');
+        const signature = await connection.sendRawTransaction(signedTx.serialize());
+        await connection.confirmTransaction(signature);
+
+        // Build social links string
+        const socialLinks = [];
+        if (options.website) socialLinks.push(`Website: ${options.website}`);
+        if (options.twitter) socialLinks.push(`Twitter: https://twitter.com/${options.twitter}`);
+        if (options.telegram) socialLinks.push(`Telegram: https://t.me/${options.telegram}`);
+        if (options.discord) socialLinks.push(`Discord: ${options.discord}`);
 
         // Success message with Raydium instructions
         const successMessage = `
 Token created successfully!
 
-Token Address: ${nft.address.toString()}
-Metadata Address: ${nft.metadataAddress.toString()}
+Token Address: ${mintKeypair.publicKey.toString()}
+Transaction: ${signature}
+
+Authority Status:
+${options.revokeMint ? '✅' : '❌'} Mint Authority Revoked
+${options.revokeUpdate ? '✅' : '❌'} Update Authority Revoked
+${options.revokeFreeze ? '✅' : '❌'} Freeze Authority Revoked
+
+${socialLinks.length > 0 ? '\nSocial Links:\n' + socialLinks.join('\n') : ''}
 
 To list on Raydium:
 1. Go to raydium.io
@@ -112,21 +209,22 @@ To list on Raydium:
 4. Add SOL and token amount for initial liquidity
 5. Complete the transaction
 
-Save your token address: ${nft.address.toString()}`;
+Save your token address: ${mintKeypair.publicKey.toString()}`;
 
         updateStatus(successMessage);
         console.log('Token created:', {
-            address: nft.address.toString(),
-            metadata: nft.metadataAddress.toString(),
+            address: mintKeypair.publicKey.toString(),
+            transaction: signature,
             name,
             symbol,
             supply,
-            decimals
+            decimals,
+            options
         });
 
         return {
-            address: nft.address.toString(),
-            metadata: nft.metadataAddress.toString()
+            address: mintKeypair.publicKey.toString(),
+            transaction: signature
         };
     } catch (error) {
         console.error('Token creation error:', error);
@@ -170,6 +268,10 @@ document.getElementById('nextToDetailsBtn').addEventListener('click', () => {
     tokenFormData.name = name;
     tokenFormData.symbol = symbol;
     tokenFormData.description = description;
+    tokenFormData.website = document.getElementById('website').value.trim();
+    tokenFormData.twitter = document.getElementById('twitter').value.trim();
+    tokenFormData.telegram = document.getElementById('telegram').value.trim();
+    tokenFormData.discord = document.getElementById('discord').value.trim();
 });
 
 // Back button
@@ -236,11 +338,22 @@ document.getElementById('tokenFormDetails').addEventListener('submit', async (e)
     }
 
     try {
+        const options = {
+            revokeMint: document.getElementById('revokeMint').checked,
+            revokeUpdate: document.getElementById('revokeUpdate').checked,
+            revokeFreeze: document.getElementById('revokeFreeze').checked,
+            website: tokenFormData.website,
+            twitter: tokenFormData.twitter,
+            telegram: tokenFormData.telegram,
+            discord: tokenFormData.discord
+        };
+
         const result = await createToken(
             tokenFormData.name,
             tokenFormData.symbol,
             supply,
-            decimals
+            decimals,
+            options
         );
 
         console.log('Token created:', result);
